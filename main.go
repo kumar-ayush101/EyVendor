@@ -106,12 +106,21 @@ func createVendor(c *gin.Context) {
 	})
 }
 
+func healthCheck(c *gin.Context) {
+    c.JSON(http.StatusOK, gin.H{
+        "status": "online",
+        "time":   time.Now().Format(time.RFC3339),
+    })
+}
+
 func main() {
 	// Initialize Database
 	connectDB()
 
 	// Initialize Router
 	r := gin.Default()
+
+	r.GET("/health", healthCheck)
 
 	// Define Routes
 	r.POST("/api/vendor", createVendor)
