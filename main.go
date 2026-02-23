@@ -92,18 +92,29 @@ func createVendor(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 2. Insert into techathon_db -> global_vectors
-	result, err := collection.InsertOne(ctx, vendor)
+	// 2. Define the filter and options for Upsert
+	filter := bson.M{"vendor_id": vendor.VendorID}
+	opts := options.Replace().SetUpsert(true)
+
+	// 3. Replace the document if it exists, otherwise insert it
+	result, err := collection.ReplaceOne(ctx, filter, vendor, opts)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create vendor"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save vendor"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message":    "Vendor created successfully",
-		"insertedId": result.InsertedID,
-		"vendor_id":  vendor.VendorID,
-	})
+	// 4. Return appropriate response based on whether it was created or updated
+	if result.UpsertedCount > 0 {
+		c.JSON(http.StatusCreated, gin.H{
+			"message":    "New vendor created successfully",
+			"vendor_id":  vendor.VendorID,
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"message":    "Existing vendor updated successfully",
+			"vendor_id":  vendor.VendorID,
+		})
+	}
 }
 
 // --- NEW: Route Handler to get all vendors ---
