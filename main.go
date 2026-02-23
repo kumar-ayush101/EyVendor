@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	_ "go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson" // <-- CHANGED: Removed the '_' alias so we can use bson filters
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -79,7 +79,7 @@ func connectDB() {
 	collection = client.Database(dbName).Collection(colName)
 }
 
-// --- Route Handler ---
+// --- Route Handlers ---
 func createVendor(c *gin.Context) {
 	var vendor Vendor
 
@@ -106,11 +106,43 @@ func createVendor(c *gin.Context) {
 	})
 }
 
+// --- NEW: Route Handler to get all vendors ---
+func getAllVendors(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// collection.Find with an empty bson.M{} fetches all documents
+	cursor, err := collection.Find(ctx, bson.M{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch vendors: " + err.Error()})
+		return
+	}
+	defer cursor.Close(ctx) // Ensure the cursor is closed to prevent memory leaks
+
+	var vendors []Vendor
+	// cursor.All automatically decodes all documents into our slice
+	if err = cursor.All(ctx, &vendors); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error decoding vendor data: " + err.Error()})
+		return
+	}
+
+	// If the database is empty, return an empty array instead of a null value
+	if vendors == nil {
+		vendors = []Vendor{}
+	}
+
+	// Return the count and the data
+	c.JSON(http.StatusOK, gin.H{
+		"count": len(vendors),
+		"data":  vendors,
+	})
+}
+
 func healthCheck(c *gin.Context) {
-    c.JSON(http.StatusOK, gin.H{
-        "status": "online",
-        "time":   time.Now().Format(time.RFC3339),
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"status": "online",
+		"time":   time.Now().Format(time.RFC3339),
+	})
 }
 
 func main() {
@@ -124,6 +156,7 @@ func main() {
 
 	// Define Routes
 	r.POST("/api/vendor", createVendor)
+	r.GET("/api/vendors", getAllVendors) // <-- NEW: Route added here
 
 	// Run Server
 	port := os.Getenv("PORT")
