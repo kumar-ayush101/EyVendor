@@ -8,9 +8,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-contrib/cors" // <-- NEW: Import the CORS package
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson" // <-- CHANGED: Removed the '_' alias so we can use bson filters
+	"go.mongodb.org/mongo-driver/bson" 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -117,7 +118,7 @@ func createVendor(c *gin.Context) {
 	}
 }
 
-// --- NEW: Route Handler to get all vendors ---
+// --- Route Handler to get all vendors ---
 func getAllVendors(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -163,11 +164,15 @@ func main() {
 	// Initialize Router
 	r := gin.Default()
 
+	// --- NEW: Add CORS Middleware ---
+	// cors.Default() enables default CORS settings (allows all origins, all methods)
+	r.Use(cors.Default())
+
 	r.GET("/health", healthCheck)
 
 	// Define Routes
 	r.POST("/api/vendor", createVendor)
-	r.GET("/api/vendors", getAllVendors) // <-- NEW: Route added here
+	r.GET("/api/vendors", getAllVendors) 
 
 	// Run Server
 	port := os.Getenv("PORT")
